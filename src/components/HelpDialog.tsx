@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { KeyboardMap } from '@/music/keyboard';
 
+/** 键位说明。对话框打开时，练习页看到 role=dialog 就不再把按键当成答案。 */
 export function HelpDialog() {
   return (
     <Dialog>

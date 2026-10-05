@@ -1,4 +1,4 @@
-/** Tiny seeded generator so exercise tests can be repeated exactly. */
+/** 可复现的随机数，练习测试用固定种子重放同一道题。 */
 export class RandomSource {
   static mulberry32(seed: number): () => number {
     let state = seed >>> 0;

@@ -1,4 +1,7 @@
-/** Small Web Audio voice. Enough to confirm a pitch, not a sampled piano. */
+/**
+ * 很小的 Web Audio 音色，用来确认音高，不是采样钢琴。
+ * 频率按 A4 = MIDI 69 = 440Hz。必须在用户手势之后 resume，否则浏览器会挂起 AudioContext。
+ */
 export class PianoSynth {
   private context: AudioContext | null = null;
 

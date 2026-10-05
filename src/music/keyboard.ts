@@ -1,20 +1,21 @@
 /**
- * Computer-keyboard map for one octave of pitch classes.
- * Physical QWERTY positions: number row is the white keys, and the black keys
- * sit on the letter row between them (Q W, then R T Y). E is intentionally
- * unused because there is no black key between E and F.
+ * 一个八度的电脑键盘映射。
+ * 数字行是白键，黑键落在字母行：Q W，然后空过 E，再是 R T Y。
+ * E 故意不用，因为 E 和 F 之间没有黑键。
+ * 查找用 `event.code`（物理键），不看字符，避免中文输入法改掉键位。
  */
 export interface PianoKey {
   pitchClass: number;
   legend: string;
   code: string;
   black: boolean;
-  /** Boundary after this many white keys. Black keys only. */
+  /** 画在第几对白键的右边界上。只有黑键使用。 */
   afterWhite?: number;
   name: string;
   alias: string;
 }
 
+/** 物理键位到音级。屏幕钢琴和键盘监听都读这一张表。 */
 export class KeyboardMap {
   static readonly keys: readonly PianoKey[] = [
     { pitchClass: 0, legend: '1', code: 'Digit1', black: false, name: 'C', alias: '' },

@@ -13,10 +13,15 @@ export interface StaffRenderOptions {
   width: number;
 }
 
-/** Draws one exercise onto an empty host element using VexFlow's SVG backend. */
+/**
+ * 用 VexFlow 的 SVG 后端把一道题画进空的宿主元素。
+ * 谱号和符头是音乐字体里的字符，谱线和加线是 path。
+ * 每次 draw 都新建 Renderer：SVGContext.resize 会累乘缩放。
+ */
 export class StaffRenderer {
   private static fonts: Promise<void> | null = null;
 
+  /** 加载 Bravura（谱号、符头）和 Academico。失败时清掉缓存，下次可以重试。 */
   static ensureFonts(): Promise<void> {
     if (!this.fonts) {
       this.fonts = VexFlow.loadFonts('Bravura', 'Academico')
@@ -39,6 +44,7 @@ export class StaffRenderer {
     renderer.resize(width, height);
     const context = renderer.getContext();
 
+    // y = 92、画布高 270，给上下加线留空，避免符头贴边。
     const stave = new Stave(12, 92, width - 24);
     stave.addClef(exercise.clef);
     if (exercise.key.fifths !== 0) stave.addKeySignature(exercise.key.id);
@@ -67,12 +73,13 @@ export class StaffRenderer {
     const voice = new Voice({ numBeats: 4, beatValue: 4 });
     voice.addTickable(staveNote);
     const available = Math.max(72, stave.getNoteEndX() - stave.getNoteStartX() - 16);
-    // Keep a single flashcard note near the clef instead of justifying it to the barline.
+    // 识谱卡片把音符留在谱号旁边，不把它撑到小节线。
     new Formatter().joinVoices([voice]).format([voice], Math.min(150, available));
     voice.draw(context, stave);
 
     const svg = host.querySelector('svg');
     if (svg instanceof SVGElement) {
+      // viewBox 让谱面随容器缩放，窄屏不会被裁成半截。
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', '100%');
       svg.setAttribute('height', String(height));
@@ -82,6 +89,7 @@ export class StaffRenderer {
     }
   }
 
+  /** 未判分时，已经按对的和弦音变绿；整题判错则全部变红。 */
   private static colorFor(pitchClass: number, options: StaffRenderOptions): string {
     if (options.grade?.correct === true) return PINE;
     if (options.grade && !options.grade.correct) return CINNABAR;

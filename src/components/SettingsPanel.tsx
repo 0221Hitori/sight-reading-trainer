@@ -30,6 +30,7 @@ const FIFTHS = [
 
 const NOTE_CHOICES = MusicTheory.noteChoices(36, 84);
 
+/** 练习设置。改动由外层记为自定义，并在下一题生效。 */
 export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: SettingsPanelProps) {
   const fifthsValue = `${settings.minFifths}:${settings.maxFifths}`;
   const fifthsOptions = FIFTHS.some((option) => option.value === fifthsValue)
@@ -104,6 +105,7 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
           value={settings.accidentalMode}
           onChange={(event) => {
             const accidentalMode = event.target.value as AccidentalMode;
+            // 自然音不出黑键，也不使用调号。把五度圈和变化音概率一并清零，控件随即禁用。
             if (accidentalMode === 'naturals') {
               onChange({ accidentalMode, minFifths: 0, maxFifths: 0, chromaticProbability: 0 });
               return;

@@ -19,9 +19,8 @@ const KEY_IDS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E
 const NATURAL_PITCH_CLASSES = new Set([0, 2, 4, 5, 7, 9, 11]);
 
 /**
- * Every pitch class, with the usual enharmonic pair when one exists.
- * Exotic spellings (B♯, E♯) are included so sharp-side keys can still be spelled,
- * but chromatic selection penalizes them.
+ * 每个音级的常用等音拼写。
+ * 含 B♯、E♯ 等少见拼法，升号调仍能拼出来；变化音择优时会扣这些拼法的分。
  */
 const SPELLINGS: readonly (readonly SpellingOption[])[] = [
   [
@@ -67,6 +66,7 @@ const SPELLINGS: readonly (readonly SpellingOption[])[] = [
 
 const STEP_INDEX: Record<Step, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 
+/** 各谱号的可读 MIDI 窗口，以及谱表最下方那条线的音名。窗口留了一点加线空间。 */
 const CLEF_INFO: Record<Clef, { label: string; full: string; low: number; high: number; bottomStep: Step; bottomOctave: number }> = {
   treble: { label: '高音', full: '高音谱号', low: 55, high: 84, bottomStep: 'E', bottomOctave: 4 },
   bass: { label: '低音', full: '低音谱号', low: 36, high: 64, bottomStep: 'G', bottomOctave: 2 },
@@ -75,17 +75,19 @@ const CLEF_INFO: Record<Clef, { label: string; full: string; low: number; high: 
 };
 
 /**
- * Pitch spelling, key signatures, and clef ranges.
- * Noteheads are placed by letter; accidentals are printed only when the
- * signature does not already imply them.
+ * 音高拼写、调号和谱号音域。
+ * 符头按音名字母定位；调号已经隐含的变音不再另印。
+ * MIDI 中央 C 是 60。
  */
 export class MusicTheory {
   private static cachedKeys: KeySignature[] | null = null;
 
+  /** 折成 0–11。JS 里负数取模仍可能为负，所以再加 12。 */
   static pitchClass(midi: number): number {
     return ((midi % 12) + 12) % 12;
   }
 
+  /** 科学音高八度。MIDI 60 是 C4。 */
   static octaveOf(midi: number): number {
     return Math.floor(midi / 12) - 1;
   }
@@ -94,6 +96,7 @@ export class MusicTheory {
     return NATURAL_PITCH_CLASSES.has(this.pitchClass(pitchClass));
   }
 
+  /** 五度圈上的主音。每多一个升号，主音升一个纯五度（音级 +7）。 */
   static tonicPitchClass(fifths: number): number {
     return (((fifths * 7) % 12) + 12) % 12;
   }
@@ -104,6 +107,7 @@ export class MusicTheory {
     return scale.includes(this.pitchClass(pitchClass));
   }
 
+  /** 调号里被升降的音名。升号顺序 F C G D A E B，降号顺序相反。 */
   static alterations(fifths: number): Partial<Record<Step, AccidentalValue>> {
     const map: Partial<Record<Step, AccidentalValue>> = {};
     if (fifths > 0) {
@@ -165,8 +169,9 @@ export class MusicTheory {
   }
 
   /**
-   * True when the notehead sits on or beyond a ledger line.
-   * The space just outside the staff (for example D4 under the treble staff) does not count.
+   * 符头是否落在加线上或加线之外。
+   * 紧贴谱表外侧的间（例如高音谱号下的 D4）不算加线。
+   * 位置按全音阶级数：底线是 0，向上每条线或每个间 +1。
    */
   static usesLedgerLine(clef: Clef, pitch: Pick<SpelledPitch, 'step' | 'octave'>): boolean {
     const info = CLEF_INFO[clef];
@@ -191,11 +196,12 @@ export class MusicTheory {
     return this.formatName(spelled, false);
   }
 
-  /** VexFlow positions the notehead from the letter. Accidentals are modifiers. */
+  /** VexFlow 用字母定位符头，例如 `c/4`。变音记号另加 Accidental，不写进这个字符串。 */
   static vexflowKey(pitch: Pick<SpelledPitch, 'step' | 'octave'>): string {
     return `${pitch.step.toLowerCase()}/${pitch.octave}`;
   }
 
+  /** 与调号一致则不印；需要取消调号时印还原号 `n`。 */
   static printedAccidental(step: Step, accidental: AccidentalValue, key: KeySignature): PrintedAccidental {
     const fromKey = key.alterations[step] ?? 0;
     if (accidental === fromKey) return null;
@@ -204,8 +210,9 @@ export class MusicTheory {
   }
 
   /**
-   * Spell a MIDI pitch in a key. Diatonic tones use the key's spelling even
-   * when that letter carries a signature accidental (F♯ in G major).
+   * 按调号拼写一个 MIDI 音。
+   * 调内音沿用调号的拼法，即使那个字母已经带升降号（G 大调的 F♯）。
+   * 调外音再按升降号偏好挑选等音。
    */
   static spell(midi: number, key: KeySignature, mode: AccidentalMode = 'mixed'): SpelledPitch {
     const pitchClass = this.pitchClass(midi);
@@ -221,7 +228,7 @@ export class MusicTheory {
     };
   }
 
-  /** MIDI note of `pitchClass` closest to `anchor`, so feedback can sound in a nearby octave. */
+  /** 离 `anchor` 最近的那个八度，用来把按错的音级响在谱面附近。 */
   static nearestMidi(pitchClass: number, anchor: number): number {
     const anchorClass = this.pitchClass(anchor);
     let delta = this.pitchClass(pitchClass) - anchorClass;
@@ -239,6 +246,10 @@ export class MusicTheory {
     return choices;
   }
 
+  /**
+   * 调外音的等音择优。降号调或降号模式偏向♭，否则偏向♯；
+   * E♯、B♯、F♭、C♭ 额外扣分，避免识谱题出现少见拼法。
+   */
   private static pickChromaticSpelling(
     options: readonly SpellingOption[],
     key: KeySignature,

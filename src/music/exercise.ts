@@ -1,8 +1,12 @@
 import { MusicTheory } from '@/music/theory';
 import type { Clef, Exercise, KeySignature, PracticeSettings, SpelledPitch } from '@/music/types';
 
-/** Builds one staff question from the current settings. */
+/**
+ * 按当前设置出一道谱题。
+ * 顺序是：收紧设置 → 选调 → 选谱号 → 在音池里抽和弦 → 按调号拼写。
+ */
 export class ExerciseGenerator {
+  /** `rng` 返回 [0, 1)。测试传入种子生成器，界面用 `Math.random`。 */
   static next(settings: PracticeSettings, rng: () => number = Math.random): Exercise {
     const safe = this.normalize(settings);
     const key = this.pickKey(safe, rng);
@@ -25,6 +29,7 @@ export class ExerciseGenerator {
     };
   }
 
+  /** 把越界或颠倒的设置收进生成器能出题的范围。空谱号列表退回高音谱号。 */
   static normalize(settings: PracticeSettings): PracticeSettings {
     const clefs = settings.clefs.length > 0 ? [...settings.clefs] : (['treble'] as Clef[]);
     let lowest = Math.round(settings.lowestMidi);
@@ -55,6 +60,10 @@ export class ExerciseGenerator {
     };
   }
 
+  /**
+   * 在五度圈区间里选调。自然音只留 C 大调，升号模式只要 fifths ≥ 0，降号模式只要 fifths ≤ 0。
+   * 筛完是空的就退回 C 大调，避免设置互相矛盾时出不了题。
+   */
   private static pickKey(settings: PracticeSettings, rng: () => number): KeySignature {
     const candidates = MusicTheory.allKeys().filter((key) => {
       if (key.fifths < settings.minFifths || key.fifths > settings.maxFifths) return false;
@@ -67,6 +76,7 @@ export class ExerciseGenerator {
     return pool[Math.floor(rng() * pool.length)] ?? MusicTheory.keyByFifths(0);
   }
 
+  /** 优先选音池够放下 `chordSizeMin` 个音的谱号，避免窄音域谱号抽不出和弦。 */
   private static pickClef(settings: PracticeSettings, key: KeySignature, rng: () => number): Clef {
     const ranked = settings.clefs
       .map((clef) => ({ clef, count: this.midiPool(settings, key, clef).length }))
@@ -77,6 +87,10 @@ export class ExerciseGenerator {
     return choices[Math.floor(rng() * choices.length)] ?? 'treble';
   }
 
+  /**
+   * 设置音域和谱号窗口的交集。交集为空时退回设置音域，否则这个谱号一题都出不来。
+   * 自然音丢掉黑键。
+   */
   private static midiPool(settings: PracticeSettings, key: KeySignature, clef: Clef): number[] {
     const window = MusicTheory.clefWindow(clef);
     let low = Math.max(settings.lowestMidi, window.low);
@@ -97,6 +111,10 @@ export class ExerciseGenerator {
     return midis;
   }
 
+  /**
+   * 先按设置的最小音程抽。抽不满再把音程降到 1 个半音重试。
+   * 仍然一个音都没有时，退回音池里的单音。
+   */
   private static chooseMidis(
     settings: PracticeSettings,
     diatonic: readonly number[],
@@ -139,7 +157,7 @@ export class ExerciseGenerator {
     return chosen.every((existing) => {
       if (MusicTheory.pitchClass(existing) === pitchClass) return false;
       if (Math.abs(existing - midi) < minInterval) return false;
-      // C and C♯ share a staff letter and collide as a chord.
+      // C 和 C♯ 共用一个谱位字母，叠成和弦时符头会撞在一起。
       return MusicTheory.spell(existing, key, settings.accidentalMode).step !== step;
     });
   }
@@ -161,7 +179,7 @@ export class ExerciseGenerator {
   }
 }
 
-/** Staff captions that never reveal the answer before grading. */
+/** 谱面标题。判分之前只写谱号、调号和音数，不写出具体音名。 */
 export class ExerciseView {
   static meta(exercise: Exercise): string {
     const density = exercise.notes.length === 1 ? '单音' : `${exercise.notes.length} 个音`;

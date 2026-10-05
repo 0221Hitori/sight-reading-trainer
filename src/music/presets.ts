@@ -130,6 +130,10 @@ const DEFINITIONS: readonly PresetDefinition[] = [
   },
 ];
 
+/**
+ * 难度预设。预设里没有 `sound`，`apply` 会保留当前的声音开关。
+ * 未知 id 退回第一项（入门）。
+ */
 export class PracticePresets {
   static readonly list = DEFINITIONS;
 

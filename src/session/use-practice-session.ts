@@ -1,3 +1,8 @@
+/**
+ * 练习会话的副作用外壳。对错由 PracticeRound 决定。
+ * 这里负责：发声、写入 ProgressStore、答对后 720ms 自动下一题、限时检查。
+ * settings 和 round 的 ref 只在回调里更新，避免渲染期间写 ref。
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PianoSynth } from '@/audio/synth';
 import { MusicTheory } from '@/music/theory';
@@ -62,6 +67,7 @@ export function usePracticeSession(): PracticeController {
     publish(next);
   }, [publish]);
 
+  /** 答错先响按下去的音级，220ms 后再响谱上的音。超时和看答案只响正确答案。 */
   const playFeedback = useCallback((transition: RoundTransition) => {
     if (!settingsRef.current.sound || transition.effect === 'none' || transition.effect === 'partial') return;
     synth.current.resume();
@@ -128,6 +134,7 @@ export function usePracticeSession(): PracticeController {
     [publish],
   );
 
+  /** 改设置记为自定义，下一题才用。换预设立刻重开一轮。声音开关不改预设、也不重开。 */
   const commit = useCallback(
     (next: PracticeSettings, restartSession: boolean) => {
       const normalized = ExerciseGenerator.normalize(next);
@@ -160,6 +167,7 @@ export function usePracticeSession(): PracticeController {
     [commit],
   );
 
+  // 只在出题且限时时跑。timeout 读 ref，避免间隔回调拿到过期的设置。
   useEffect(() => {
     if (round.phase !== 'question' || !settings.timed) return;
     const id = window.setInterval(() => {
