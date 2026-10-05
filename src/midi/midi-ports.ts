@@ -7,8 +7,9 @@ export interface MidiStatus {
 }
 
 /**
- * Web MIDI adapter. Note-on events are reduced to pitch classes so they share
- * the same answer path as the computer keyboard. Octave is intentionally ignored.
+ * Web MIDI 适配。Note-on 收成音级，和电脑键盘走同一条判分。
+ * 状态字节高四位 0x90 且力度大于 0 才是按下；力度为 0 的 0x90 按松键处理。
+ * 八度同样忽略。
  */
 export class MidiPorts {
   private access: MIDIAccess | null = null;

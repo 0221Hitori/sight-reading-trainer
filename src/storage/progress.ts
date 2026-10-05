@@ -7,8 +7,9 @@ const SETTINGS_KEY = 'sightread.settings.v1';
 const STATS_KEY = 'sightread.stats.v1';
 
 /**
- * Local persistence for settings and high-level stats.
- * Pass a Storage implementation in tests; browsers use localStorage.
+ * 设置和累计成绩的本地存储。
+ * 测试传入自己的 Storage；浏览器使用 localStorage。没有 localStorage 时退回内存表。
+ * 读写失败（隐私模式、磁盘满）时练习仍可继续。
  */
 export class ProgressStore {
   static loadSettings(storage?: Storage): PracticeSettings {
@@ -55,7 +56,7 @@ export class ProgressStore {
       bestStreak: Math.max(current.bestStreak, bestStreak),
       sessionsCompleted: current.sessionsCompleted,
       missesByNote,
-      recentMisses: miss ? [miss, ...current.recentMisses].slice(0, 12) : current.recentMisses,
+      recentMisses: miss ? [miss, ...current.recentMisses].slice(0, 12) : current.recentMisses, // 新的在前，只留 12 条
     };
     this.write(STATS_KEY, JSON.stringify(next), storage);
     return next;
@@ -160,6 +161,7 @@ function finite(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+/** 旧成绩文件没有 recentMisses，或条目缺字段时丢掉，避免一次坏数据弄空整份统计。 */
 function sanitizeMisses(value: unknown): MissRecord[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {

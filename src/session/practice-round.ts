@@ -23,8 +23,9 @@ export interface RoundTransition {
 }
 
 /**
- * Pure practice state machine. The React hook applies sound and localStorage
- * after these transitions; it does not decide whether an answer is right.
+ * 纯练习状态机：出题、反馈、本轮结束。
+ * React hook 只在转移之后发声和写 localStorage，不在这里决定对错。
+ * 重复按键返回同一个 snapshot 引用，effect 为 `none`，方便调用方跳过副作用。
  */
 export class PracticeRound {
   static create(settings: PracticeSettings, rng: () => number, now: number): RoundSnapshot {
@@ -98,6 +99,7 @@ export class PracticeRound {
     const outstanding = snapshot.exercise.notes.filter(
       (note) => !matched.includes(MusicTheory.pitchClass(note.midi)),
     );
+    // 错题音名只记还没对上的音，和弦里已经按对的音不重复记错。
     const miss = grade.correct ? null : this.describeMiss(snapshot.exercise, grade, playedPitchClass, outstanding, settings);
     const effect: RoundEffect =
       grade.reason === 'match' ? 'correct' : grade.reason === 'timeout' ? 'timeout' : grade.reason === 'reveal' ? 'reveal' : 'wrong';
@@ -123,6 +125,7 @@ export class PracticeRound {
     settings: PracticeSettings,
   ): MissRecord {
     const names = ExerciseView.letterNames(outstanding.length > 0 ? outstanding : exercise.notes);
+    // 超时、看答案、按错各有标签。按错时按当前调号拼出你按的音级。
     let playedLabel = '超时';
     if (grade.reason === 'reveal') playedLabel = '看答案';
     else if (grade.reason === 'wrong' && playedPitchClass !== null) {

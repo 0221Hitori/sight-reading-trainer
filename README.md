@@ -1,3 +1,5 @@
+[English](README.md) · [中文](README.zh-CN.md)
+
 # 识谱训练工具
 
 Keyboard-first sight-reading practice. A note or a chord is engraved on a staff; you answer on the computer keyboard, the on-screen piano, or a MIDI keyboard. Scoring uses pitch class (C♯ and D♭ are the same key) and ignores octave, so one octave of keys can name any staff position.

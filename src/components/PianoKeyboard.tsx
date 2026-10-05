@@ -7,6 +7,7 @@ interface PianoKeyboardProps {
   onPress: (pitchClass: number) => void;
 }
 
+/** 屏幕钢琴。错键用 `data-wrong`（朱色），已确认的和弦音用 `data-active`（绿色），两者不同时出现。 */
 export function PianoKeyboard({ entered, held, wrongPitchClass, onPress }: PianoKeyboardProps) {
   const whites = KeyboardMap.whiteKeys();
   const blacks = KeyboardMap.blackKeys();

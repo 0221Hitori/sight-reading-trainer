@@ -1,6 +1,9 @@
 import type { Grade, MissRecord } from '@/music/types';
 
-/** Compares a stream of pitch classes with the notes on the staff. Octave is ignored. */
+/**
+ * 把一串音级和谱上的音比较。八度被忽略，C♯ 与 D♭ 是同一个键。
+ * 键盘、屏幕钢琴和 MIDI 都只调用这里，不要在输入处理里另写判分。
+ */
 export class AnswerChecker {
   static targetClasses(midis: readonly number[]): number[] {
     const classes: number[] = [];
@@ -12,9 +15,9 @@ export class AnswerChecker {
   }
 
   /**
-   * Fold one pressed pitch class into the in-progress answer.
-   * A pitch class outside the target fails the question immediately.
-   * The question resolves as correct only when every target class has been played.
+   * 把新按下的音级并进尚未完成的答案。
+   * 目标以外的音级立刻判错。重复按已确认的音级则忽略。
+   * 只有每个目标音级都出现过才算对，顺序无关。
    */
   static applyPitchClass(
     target: readonly number[],
@@ -47,7 +50,7 @@ export class AnswerChecker {
   }
 }
 
-/** Immutable per-session tally. Lifetime totals live in ProgressStore. */
+/** 本轮不可变记分。跨刷新的累计成绩在 ProgressStore。 */
 export class SessionScore {
   readonly attempts: number;
   readonly correct: number;

@@ -9,6 +9,10 @@ interface StaffViewProps {
   grade: Grade | null;
 }
 
+/**
+ * 谱面。判分之前的 aria-label 只描述谱号和调号，不念出音名。
+ * 宽度不变时不重画，避免计时器每次刷新都重建 SVG。
+ */
 export function StaffView({ exercise, entered, grade }: StaffViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const reactId = useId();

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
+/** 练习主界面。键盘、屏幕钢琴和 MIDI 都把音级交给 session.answer。 */
 export function PracticeApp() {
   const session = usePracticeSession();
   const [held, setHeld] = useState<number[]>([]);
@@ -41,6 +42,7 @@ export function PracticeApp() {
   } = session;
 
   useEffect(() => {
+    // event.code 是物理键。长按连发、正在输入、帮助对话框打开时不抢键。
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
       const pitchClass = KeyboardMap.pitchClassFromCode(event.code);
@@ -51,6 +53,7 @@ export function PracticeApp() {
         return;
       }
       if ((event.code === 'Enter' || event.code === 'Space') && phase === 'feedback') {
+        // 焦点已经在按钮或链接上时不拦截，避免一次点击被当成「下一题」。
         if (event.target instanceof HTMLElement && event.target.closest('button, a')) return;
         event.preventDefault();
         advance();

@@ -8,6 +8,7 @@ interface SessionSummaryProps {
   onRestart: () => void;
 }
 
+/** 本轮小结。这里的错题只属于这一轮；刷新后仍在的是 LifetimeStats.recentMisses。 */
 export function SessionSummary({ score, lifetime, onRestart }: SessionSummaryProps) {
   return (
     <div className="flex flex-col gap-4 py-6" data-testid="summary">
