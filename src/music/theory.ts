@@ -65,11 +65,13 @@ const SPELLINGS: readonly (readonly SpellingOption[])[] = [
   ],
 ];
 
-const CLEF_INFO: Record<Clef, { label: string; full: string; low: number; high: number }> = {
-  treble: { label: '高音', full: '高音谱号', low: 55, high: 84 },
-  bass: { label: '低音', full: '低音谱号', low: 36, high: 64 },
-  alto: { label: '中音', full: '中音谱号', low: 48, high: 76 },
-  tenor: { label: '次中音', full: '次中音谱号', low: 43, high: 72 },
+const STEP_INDEX: Record<Step, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+
+const CLEF_INFO: Record<Clef, { label: string; full: string; low: number; high: number; bottomStep: Step; bottomOctave: number }> = {
+  treble: { label: '高音', full: '高音谱号', low: 55, high: 84, bottomStep: 'E', bottomOctave: 4 },
+  bass: { label: '低音', full: '低音谱号', low: 36, high: 64, bottomStep: 'G', bottomOctave: 2 },
+  alto: { label: '中音', full: '中音谱号', low: 48, high: 76, bottomStep: 'F', bottomOctave: 3 },
+  tenor: { label: '次中音', full: '次中音谱号', low: 43, high: 72, bottomStep: 'D', bottomOctave: 3 },
 };
 
 /**
@@ -160,6 +162,17 @@ export class MusicTheory {
 
   static clefWindow(clef: Clef): { low: number; high: number } {
     return { low: CLEF_INFO[clef].low, high: CLEF_INFO[clef].high };
+  }
+
+  /**
+   * True when the notehead sits on or beyond a ledger line.
+   * The space just outside the staff (for example D4 under the treble staff) does not count.
+   */
+  static usesLedgerLine(clef: Clef, pitch: Pick<SpelledPitch, 'step' | 'octave'>): boolean {
+    const info = CLEF_INFO[clef];
+    const bottom = info.bottomOctave * 7 + STEP_INDEX[info.bottomStep];
+    const position = pitch.octave * 7 + STEP_INDEX[pitch.step] - bottom;
+    return position <= -2 || position >= 10;
   }
 
   static accidentalGlyph(accidental: number): string {

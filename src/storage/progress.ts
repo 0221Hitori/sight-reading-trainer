@@ -55,6 +55,7 @@ export class ProgressStore {
       bestStreak: Math.max(current.bestStreak, bestStreak),
       sessionsCompleted: current.sessionsCompleted,
       missesByNote,
+      recentMisses: miss ? [miss, ...current.recentMisses].slice(0, 12) : current.recentMisses,
     };
     this.write(STATS_KEY, JSON.stringify(next), storage);
     return next;
@@ -75,6 +76,7 @@ export class ProgressStore {
       bestStreak: 0,
       sessionsCompleted: 0,
       missesByNote: {},
+      recentMisses: [],
     };
   }
 
@@ -119,6 +121,7 @@ export class ProgressStore {
       bestStreak: finite(record.bestStreak, 0),
       sessionsCompleted: finite(record.sessionsCompleted, 0),
       missesByNote: misses,
+      recentMisses: sanitizeMisses(record.recentMisses),
     };
   }
 
@@ -155,4 +158,24 @@ const memoryStorage: Pick<Storage, 'getItem' | 'setItem'> = {
 
 function finite(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizeMisses(value: unknown): MissRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Partial<MissRecord>;
+    if (typeof record.expectedLabel !== 'string' || typeof record.playedLabel !== 'string') return [];
+    const noteNames = Array.isArray(record.noteNames)
+      ? record.noteNames.filter((name): name is string => typeof name === 'string')
+      : [];
+    return [
+      {
+        expectedLabel: record.expectedLabel,
+        playedLabel: record.playedLabel,
+        noteNames,
+        clefLabel: typeof record.clefLabel === 'string' ? record.clefLabel : '',
+      },
+    ];
+  });
 }

@@ -229,12 +229,12 @@ export function PracticeApp() {
             }}
           />
           <section className="rounded-xl border bg-card p-4">
-            <h2 className="text-sm font-medium">这轮错题</h2>
-            {score.misses.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">还没有错题。</p>
+            <h2 className="text-sm font-medium">错题记录</h2>
+            {lifetime.recentMisses.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">还没有错题。记在这台浏览器里，刷新还在。</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
-                {score.misses.slice(-5).reverse().map((miss, index) => (
+                {lifetime.recentMisses.slice(0, 5).map((miss, index) => (
                   <li key={`${miss.expectedLabel}-${index}`} className="border-b border-border/70 pb-2 last:border-0">
                     <p>
                       {miss.clefLabel} · 谱面 {miss.expectedLabel}

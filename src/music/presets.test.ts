@@ -25,6 +25,9 @@ describe('PracticePresets', () => {
     expect(intermediate.chordSizeMax).toBeGreaterThanOrEqual(2);
     expect(advanced.clefs).toEqual(['treble', 'bass', 'alto', 'tenor']);
     expect(advanced.sound).toBe(false);
+    expect(PracticePresets.apply('c-clef', true).clefs).toEqual(['alto', 'tenor']);
+    const covered = new Set(PracticePresets.list.flatMap((preset) => preset.clefs));
+    expect([...covered].sort()).toEqual(['alto', 'bass', 'tenor', 'treble']);
     expect(PracticePresets.labelFor('custom')).toBe('自定义');
   });
 });

@@ -19,22 +19,27 @@ export class StaffRenderer {
 
   static ensureFonts(): Promise<void> {
     if (!this.fonts) {
-      this.fonts = VexFlow.loadFonts('Bravura', 'Academico').then(() => {
-        VexFlow.setFonts('Bravura', 'Academico');
-      });
+      this.fonts = VexFlow.loadFonts('Bravura', 'Academico')
+        .then(() => {
+          VexFlow.setFonts('Bravura', 'Academico');
+        })
+        .catch((error: unknown) => {
+          this.fonts = null;
+          throw error;
+        });
     }
     return this.fonts;
   }
 
   static draw(host: HTMLDivElement, exercise: Exercise, options: StaffRenderOptions): void {
     host.replaceChildren();
-    const width = Math.max(320, Math.floor(options.width));
-    const height = 250;
+    const width = Math.max(280, Math.floor(options.width || 320));
+    const height = 270;
     const renderer = new Renderer(host, Renderer.Backends.SVG);
     renderer.resize(width, height);
     const context = renderer.getContext();
 
-    const stave = new Stave(12, 78, width - 24);
+    const stave = new Stave(12, 92, width - 24);
     stave.addClef(exercise.clef);
     if (exercise.key.fifths !== 0) stave.addKeySignature(exercise.key.id);
     stave.setContext(context).draw();
