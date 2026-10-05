@@ -1,0 +1,168 @@
+import { MusicTheory } from '@/music/theory';
+import type { Clef, Exercise, KeySignature, PracticeSettings, SpelledPitch } from '@/music/types';
+
+/** Builds one staff question from the current settings. */
+export class ExerciseGenerator {
+  static next(settings: PracticeSettings, rng: () => number = Math.random): Exercise {
+    const safe = this.normalize(settings);
+    const key = this.pickKey(safe, rng);
+    const clef = this.pickClef(safe, key, rng);
+    const pool = this.midiPool(safe, key, clef);
+    const diatonic = pool.filter((midi) => MusicTheory.isDiatonic(MusicTheory.pitchClass(midi), key));
+    const tonalPool = diatonic.length > 0 ? diatonic : pool;
+    const distinct = new Set(pool.map((midi) => MusicTheory.pitchClass(midi))).size;
+    const size = Math.max(1, Math.min(this.pickInt(safe.chordSizeMin, safe.chordSizeMax, rng), distinct || 1));
+    const midis = this.chooseMidis(safe, tonalPool, pool, size, rng);
+    const notes = midis
+      .slice()
+      .sort((left, right) => left - right)
+      .map((midi) => MusicTheory.spell(midi, key, safe.accidentalMode));
+    return {
+      id: `ex-${Math.floor(rng() * 0xffffffff).toString(16)}`,
+      clef,
+      key,
+      notes,
+    };
+  }
+
+  static normalize(settings: PracticeSettings): PracticeSettings {
+    const clefs = settings.clefs.length > 0 ? [...settings.clefs] : (['treble'] as Clef[]);
+    let lowest = Math.round(settings.lowestMidi);
+    let highest = Math.round(settings.highestMidi);
+    if (lowest > highest) {
+      const swap = lowest;
+      lowest = highest;
+      highest = swap;
+    }
+    if (highest - lowest < 2) highest = lowest + 2;
+    const chordSizeMin = clampInt(settings.chordSizeMin, 1, 4);
+    const chordSizeMax = clampInt(Math.max(settings.chordSizeMax, chordSizeMin), 1, 4);
+    const minFifths = clampInt(Math.min(settings.minFifths, settings.maxFifths), -7, 7);
+    const maxFifths = clampInt(Math.max(settings.minFifths, settings.maxFifths), -7, 7);
+    return {
+      ...settings,
+      clefs,
+      lowestMidi: lowest,
+      highestMidi: highest,
+      chordSizeMin,
+      chordSizeMax,
+      minFifths,
+      maxFifths,
+      chromaticProbability: clampNumber(settings.chromaticProbability, 0, 1),
+      minInterval: clampInt(settings.minInterval, 1, 12),
+      timeoutMs: clampInt(settings.timeoutMs, 1000, 30000),
+      sessionLength: clampInt(settings.sessionLength, 5, 100),
+    };
+  }
+
+  private static pickKey(settings: PracticeSettings, rng: () => number): KeySignature {
+    const candidates = MusicTheory.allKeys().filter((key) => {
+      if (key.fifths < settings.minFifths || key.fifths > settings.maxFifths) return false;
+      if (settings.accidentalMode === 'naturals') return key.fifths === 0;
+      if (settings.accidentalMode === 'sharps') return key.fifths >= 0;
+      if (settings.accidentalMode === 'flats') return key.fifths <= 0;
+      return true;
+    });
+    const pool = candidates.length > 0 ? candidates : [MusicTheory.keyByFifths(0)];
+    return pool[Math.floor(rng() * pool.length)] ?? MusicTheory.keyByFifths(0);
+  }
+
+  private static pickClef(settings: PracticeSettings, key: KeySignature, rng: () => number): Clef {
+    const ranked = settings.clefs
+      .map((clef) => ({ clef, count: this.midiPool(settings, key, clef).length }))
+      .filter((item) => item.count > 0);
+    const roomy = ranked.filter((item) => item.count >= settings.chordSizeMin);
+    const pool = (roomy.length > 0 ? roomy : ranked).map((item) => item.clef);
+    const choices = pool.length > 0 ? pool : settings.clefs;
+    return choices[Math.floor(rng() * choices.length)] ?? 'treble';
+  }
+
+  private static midiPool(settings: PracticeSettings, key: KeySignature, clef: Clef): number[] {
+    const window = MusicTheory.clefWindow(clef);
+    let low = Math.max(settings.lowestMidi, window.low);
+    let high = Math.min(settings.highestMidi, window.high);
+    if (low > high) {
+      low = settings.lowestMidi;
+      high = settings.highestMidi;
+    }
+    const midis: number[] = [];
+    for (let midi = low; midi <= high; midi += 1) {
+      const pitchClass = MusicTheory.pitchClass(midi);
+      if (settings.accidentalMode === 'naturals' && !MusicTheory.isNatural(pitchClass)) continue;
+      if (settings.chromaticProbability <= 0 && settings.accidentalMode === 'naturals' && !MusicTheory.isDiatonic(pitchClass, key)) {
+        continue;
+      }
+      midis.push(midi);
+    }
+    return midis;
+  }
+
+  private static chooseMidis(
+    settings: PracticeSettings,
+    diatonic: readonly number[],
+    all: readonly number[],
+    size: number,
+    rng: () => number,
+  ): number[] {
+    const chosen: number[] = [];
+    const allowChromatic = settings.chromaticProbability > 0 && settings.accidentalMode !== 'naturals';
+    for (const minInterval of [settings.minInterval, 1]) {
+      let guard = 0;
+      while (chosen.length < size && guard < 120) {
+        guard += 1;
+        const useChromatic = allowChromatic && rng() < settings.chromaticProbability;
+        const source = useChromatic && all.length > 0 ? all : diatonic;
+        if (source.length === 0) break;
+        const midi = source[Math.floor(rng() * source.length)];
+        if (midi === undefined || !this.fits(chosen, midi, minInterval)) continue;
+        chosen.push(midi);
+      }
+      if (chosen.length >= size) break;
+    }
+    if (chosen.length === 0) {
+      const fallback = all[Math.floor(rng() * all.length)] ?? diatonic[0] ?? 60;
+      chosen.push(fallback);
+    }
+    return chosen;
+  }
+
+  private static fits(chosen: readonly number[], midi: number, minInterval: number): boolean {
+    const pitchClass = MusicTheory.pitchClass(midi);
+    return chosen.every(
+      (existing) =>
+        MusicTheory.pitchClass(existing) !== pitchClass && Math.abs(existing - midi) >= minInterval,
+    );
+  }
+
+  private static pickInt(min: number, max: number, rng: () => number): number {
+    const low = Math.min(min, max);
+    const high = Math.max(min, max);
+    return low + Math.floor(rng() * (high - low + 1));
+  }
+}
+
+/** Staff captions that never reveal the answer before grading. */
+export class ExerciseView {
+  static meta(exercise: Exercise): string {
+    const density = exercise.notes.length === 1 ? '单音' : `${exercise.notes.length} 个音`;
+    return `${MusicTheory.clefLabel(exercise.clef)} · ${exercise.key.label} · ${density}`;
+  }
+
+  static answerLabel(notes: readonly SpelledPitch[]): string {
+    return notes.map((note) => MusicTheory.formatName(note)).join('  ');
+  }
+
+  static letterNames(notes: readonly SpelledPitch[]): string[] {
+    return notes.map((note) => MusicTheory.formatName(note, false));
+  }
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
