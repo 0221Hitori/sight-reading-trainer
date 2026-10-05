@@ -53,7 +53,21 @@ describe('ProgressStore', () => {
     expect(again.totalCorrect).toBe(1);
     expect(again.bestStreak).toBe(4);
     expect(again.missesByNote['F♯']).toBe(1);
+    expect(again.recentMisses).toHaveLength(1);
+    expect(again.recentMisses[0]?.playedLabel).toBe('F');
     const finished = ProgressStore.completeSession(storage);
     expect(finished.sessionsCompleted).toBe(1);
+    expect(finished.recentMisses).toHaveLength(1);
+  });
+
+  it('accepts older stats that have no miss history yet', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      'sightread.stats.v1',
+      JSON.stringify({ version: 1, totalAttempts: 3, totalCorrect: 2, bestStreak: 2, sessionsCompleted: 1, missesByNote: {} }),
+    );
+    const stats = ProgressStore.loadStats(storage);
+    expect(stats.totalAttempts).toBe(3);
+    expect(stats.recentMisses).toEqual([]);
   });
 });

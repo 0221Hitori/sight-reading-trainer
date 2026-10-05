@@ -146,7 +146,7 @@
 
 .staff-host {
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .feedback-ok,

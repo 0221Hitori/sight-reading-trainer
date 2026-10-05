@@ -87,4 +87,6 @@ export interface LifetimeStats {
   bestStreak: number;
   sessionsCompleted: number;
   missesByNote: Record<string, number>;
+  /** Newest first. Survives reload, unlike the in-memory session list. */
+  recentMisses: MissRecord[];
 }

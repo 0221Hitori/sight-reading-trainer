@@ -102,7 +102,14 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
         <select
           className="field-select"
           value={settings.accidentalMode}
-          onChange={(event) => onChange({ accidentalMode: event.target.value as AccidentalMode })}
+          onChange={(event) => {
+            const accidentalMode = event.target.value as AccidentalMode;
+            if (accidentalMode === 'naturals') {
+              onChange({ accidentalMode, minFifths: 0, maxFifths: 0, chromaticProbability: 0 });
+              return;
+            }
+            onChange({ accidentalMode });
+          }}
         >
           {MODES.map((mode) => (
             <option key={mode.id} value={mode.id}>
@@ -117,6 +124,7 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
         <select
           className="field-select"
           value={fifthsValue}
+          disabled={settings.accidentalMode === 'naturals'}
           onChange={(event) => {
             const [min, max] = event.target.value.split(':').map(Number);
             onChange({ minFifths: min, maxFifths: max });
@@ -140,6 +148,7 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
           min={0}
           max={80}
           step={5}
+          disabled={settings.accidentalMode === 'naturals'}
           value={[Math.round(settings.chromaticProbability * 100)]}
           onValueChange={(value) => onChange({ chromaticProbability: (value[0] ?? 0) / 100 })}
           aria-label="变化音比例"

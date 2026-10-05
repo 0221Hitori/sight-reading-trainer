@@ -110,6 +110,24 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     timeoutMs: 8000,
     sessionLength: 20,
   },
+  {
+    id: 'c-clef',
+    label: '中音',
+    blurb: '中音与次中音谱号，中央 C 附近，至多一个升降号。',
+    clefs: ['alto', 'tenor'],
+    lowestMidi: 48,
+    highestMidi: 72,
+    accidentalMode: 'mixed',
+    minFifths: -1,
+    maxFifths: 1,
+    chromaticProbability: 0.1,
+    chordSizeMin: 1,
+    chordSizeMax: 2,
+    minInterval: 3,
+    timed: true,
+    timeoutMs: 8000,
+    sessionLength: 20,
+  },
 ];
 
 export class PracticePresets {

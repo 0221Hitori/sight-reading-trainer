@@ -54,7 +54,75 @@ describe('ExerciseGenerator', () => {
         expect(MusicTheory.isDiatonic(note.midi, exercise.key)).toBe(true);
       }
     }
-    expect(seen.size).toBeGreaterThanOrEqual(3);
+    expect([...seen].sort()).toEqual(['alto', 'bass', 'tenor', 'treble']);
+    for (const exercise of [ExerciseGenerator.next(settings, rng)]) {
+      const steps = exercise.notes.map((note) => note.step);
+      expect(new Set(steps).size).toBe(steps.length);
+    }
+  });
+
+  it('prints an accidental when the note leaves the key, and can use each clef alone', () => {
+    const chromatic: PracticeSettings = {
+      ...PracticePresets.apply('advanced', true),
+      clefs: ['treble'],
+      accidentalMode: 'sharps',
+      minFifths: 0,
+      maxFifths: 0,
+      chromaticProbability: 1,
+      chordSizeMin: 1,
+      chordSizeMax: 1,
+    };
+    const printed = new Set<string>();
+    const rng = RandomSource.mulberry32(5);
+    for (let index = 0; index < 40; index += 1) {
+      const exercise = ExerciseGenerator.next(chromatic, rng);
+      const note = exercise.notes[0]!;
+      if (note.printedAccidental) printed.add(note.printedAccidental);
+      expect(exercise.key.fifths).toBe(0);
+    }
+    expect(printed.has('#')).toBe(true);
+
+    for (const clef of ['treble', 'bass', 'alto', 'tenor'] as const) {
+      const solo: PracticeSettings = {
+        ...PracticePresets.apply('advanced', true),
+        clefs: [clef],
+        chromaticProbability: 0,
+      };
+      const exercise = ExerciseGenerator.next(solo, RandomSource.mulberry32(2));
+      expect(exercise.clef).toBe(clef);
+    }
+  });
+
+  it('includes ledger-line notes once the range leaves the staff', () => {
+    const settings = PracticePresets.apply('easy', true);
+    const rng = RandomSource.mulberry32(6);
+    let ledger = 0;
+    for (let index = 0; index < 40; index += 1) {
+      const exercise = ExerciseGenerator.next(settings, rng);
+      if (exercise.notes.some((note) => MusicTheory.usesLedgerLine(exercise.clef, note))) ledger += 1;
+    }
+    expect(ledger).toBeGreaterThan(0);
+  });
+
+  it('never puts two spellings of the same staff letter in one chord', () => {
+    const settings: PracticeSettings = {
+      ...PracticePresets.apply('advanced', true),
+      clefs: ['treble'],
+      accidentalMode: 'mixed',
+      minFifths: -2,
+      maxFifths: 2,
+      chromaticProbability: 1,
+      chordSizeMin: 2,
+      chordSizeMax: 3,
+      minInterval: 1,
+    };
+    const rng = RandomSource.mulberry32(42);
+    for (let index = 0; index < 40; index += 1) {
+      const exercise = ExerciseGenerator.next(settings, rng);
+      const steps = exercise.notes.map((note) => note.step);
+      expect(new Set(steps).size).toBe(steps.length);
+      expect(exercise.notes.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
   it('stays inside the requested key-signature range', () => {

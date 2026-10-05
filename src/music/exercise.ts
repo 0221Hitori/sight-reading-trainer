@@ -12,7 +12,7 @@ export class ExerciseGenerator {
     const tonalPool = diatonic.length > 0 ? diatonic : pool;
     const distinct = new Set(pool.map((midi) => MusicTheory.pitchClass(midi))).size;
     const size = Math.max(1, Math.min(this.pickInt(safe.chordSizeMin, safe.chordSizeMax, rng), distinct || 1));
-    const midis = this.chooseMidis(safe, tonalPool, pool, size, rng);
+    const midis = this.chooseMidis(safe, tonalPool, pool, size, rng, key);
     const notes = midis
       .slice()
       .sort((left, right) => left - right)
@@ -35,10 +35,10 @@ export class ExerciseGenerator {
       highest = swap;
     }
     if (highest - lowest < 2) highest = lowest + 2;
-    const chordSizeMin = clampInt(settings.chordSizeMin, 1, 4);
-    const chordSizeMax = clampInt(Math.max(settings.chordSizeMax, chordSizeMin), 1, 4);
-    const minFifths = clampInt(Math.min(settings.minFifths, settings.maxFifths), -7, 7);
-    const maxFifths = clampInt(Math.max(settings.minFifths, settings.maxFifths), -7, 7);
+    const chordSizeMin = this.clampInt(settings.chordSizeMin, 1, 4);
+    const chordSizeMax = this.clampInt(Math.max(settings.chordSizeMax, chordSizeMin), 1, 4);
+    const minFifths = this.clampInt(Math.min(settings.minFifths, settings.maxFifths), -7, 7);
+    const maxFifths = this.clampInt(Math.max(settings.minFifths, settings.maxFifths), -7, 7);
     return {
       ...settings,
       clefs,
@@ -48,10 +48,10 @@ export class ExerciseGenerator {
       chordSizeMax,
       minFifths,
       maxFifths,
-      chromaticProbability: clampNumber(settings.chromaticProbability, 0, 1),
-      minInterval: clampInt(settings.minInterval, 1, 12),
-      timeoutMs: clampInt(settings.timeoutMs, 1000, 30000),
-      sessionLength: clampInt(settings.sessionLength, 5, 100),
+      chromaticProbability: this.clampNumber(settings.chromaticProbability, 0, 1),
+      minInterval: this.clampInt(settings.minInterval, 1, 12),
+      timeoutMs: this.clampInt(settings.timeoutMs, 1000, 30000),
+      sessionLength: this.clampInt(settings.sessionLength, 5, 100),
     };
   }
 
@@ -103,6 +103,7 @@ export class ExerciseGenerator {
     all: readonly number[],
     size: number,
     rng: () => number,
+    key: KeySignature,
   ): number[] {
     const chosen: number[] = [];
     const allowChromatic = settings.chromaticProbability > 0 && settings.accidentalMode !== 'naturals';
@@ -114,7 +115,7 @@ export class ExerciseGenerator {
         const source = useChromatic && all.length > 0 ? all : diatonic;
         if (source.length === 0) break;
         const midi = source[Math.floor(rng() * source.length)];
-        if (midi === undefined || !this.fits(chosen, midi, minInterval)) continue;
+        if (midi === undefined || !this.fits(chosen, midi, minInterval, key, settings)) continue;
         chosen.push(midi);
       }
       if (chosen.length >= size) break;
@@ -126,18 +127,37 @@ export class ExerciseGenerator {
     return chosen;
   }
 
-  private static fits(chosen: readonly number[], midi: number, minInterval: number): boolean {
+  private static fits(
+    chosen: readonly number[],
+    midi: number,
+    minInterval: number,
+    key: KeySignature,
+    settings: PracticeSettings,
+  ): boolean {
     const pitchClass = MusicTheory.pitchClass(midi);
-    return chosen.every(
-      (existing) =>
-        MusicTheory.pitchClass(existing) !== pitchClass && Math.abs(existing - midi) >= minInterval,
-    );
+    const step = MusicTheory.spell(midi, key, settings.accidentalMode).step;
+    return chosen.every((existing) => {
+      if (MusicTheory.pitchClass(existing) === pitchClass) return false;
+      if (Math.abs(existing - midi) < minInterval) return false;
+      // C and C♯ share a staff letter and collide as a chord.
+      return MusicTheory.spell(existing, key, settings.accidentalMode).step !== step;
+    });
   }
 
   private static pickInt(min: number, max: number, rng: () => number): number {
     const low = Math.min(min, max);
     const high = Math.max(min, max);
     return low + Math.floor(rng() * (high - low + 1));
+  }
+
+  private static clampInt(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value)) return min;
+    return Math.min(max, Math.max(min, Math.round(value)));
+  }
+
+  private static clampNumber(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value)) return min;
+    return Math.min(max, Math.max(min, value));
   }
 }
 
@@ -157,12 +177,3 @@ export class ExerciseView {
   }
 }
 
-function clampInt(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}

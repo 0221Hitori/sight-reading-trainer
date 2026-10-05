@@ -59,4 +59,18 @@ describe('MusicTheory', () => {
     expect(MusicTheory.clefWindow('alto').low).toBeLessThan(MusicTheory.clefWindow('alto').high);
     expect(MusicTheory.clefLabel('tenor')).toBe('次中音谱号');
   });
+
+  it('marks ledger lines and leaves the space just outside the staff alone', () => {
+    const c4 = MusicTheory.spell(60, MusicTheory.keyByFifths(0));
+    const d4 = MusicTheory.spell(62, MusicTheory.keyByFifths(0));
+    const a5 = MusicTheory.spell(81, MusicTheory.keyByFifths(0));
+    const g5 = MusicTheory.spell(79, MusicTheory.keyByFifths(0));
+    expect(MusicTheory.usesLedgerLine('treble', c4)).toBe(true);
+    expect(MusicTheory.usesLedgerLine('treble', d4)).toBe(false);
+    expect(MusicTheory.usesLedgerLine('treble', a5)).toBe(true);
+    expect(MusicTheory.usesLedgerLine('treble', g5)).toBe(false);
+    expect(MusicTheory.usesLedgerLine('bass', c4)).toBe(true);
+    expect(MusicTheory.usesLedgerLine('alto', c4)).toBe(false);
+    expect(MusicTheory.usesLedgerLine('tenor', c4)).toBe(false);
+  });
 });
