@@ -204,6 +204,7 @@ export function PracticeApp() {
               <PianoKeyboard
                 entered={entered}
                 held={held}
+                wrongPitchClass={grade?.wrongPitchClass ?? null}
                 onPress={(pitchClass) => {
                   setHeld((current) => [...current, pitchClass]);
                   answer(pitchClass);

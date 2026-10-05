@@ -3,10 +3,11 @@ import { KeyboardMap } from '@/music/keyboard';
 interface PianoKeyboardProps {
   entered: readonly number[];
   held: readonly number[];
+  wrongPitchClass: number | null;
   onPress: (pitchClass: number) => void;
 }
 
-export function PianoKeyboard({ entered, held, onPress }: PianoKeyboardProps) {
+export function PianoKeyboard({ entered, held, wrongPitchClass, onPress }: PianoKeyboardProps) {
   const whites = KeyboardMap.whiteKeys();
   const blacks = KeyboardMap.blackKeys();
 
@@ -20,7 +21,8 @@ export function PianoKeyboard({ entered, held, onPress }: PianoKeyboardProps) {
             className="piano-white"
             aria-label={`${key.name}，键盘 ${key.legend}`}
             aria-pressed={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
-            data-active={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
+            data-active={wrongPitchClass !== key.pitchClass && (entered.includes(key.pitchClass) || held.includes(key.pitchClass))}
+            data-wrong={wrongPitchClass === key.pitchClass}
             onClick={() => onPress(key.pitchClass)}
           >
             <span className="piano-name">{key.name}</span>
@@ -37,7 +39,8 @@ export function PianoKeyboard({ entered, held, onPress }: PianoKeyboardProps) {
             style={{ ['--after' as string]: String(key.afterWhite ?? 1) }}
             aria-label={`${key.name}，或 ${key.alias}，键盘 ${key.legend}`}
             aria-pressed={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
-            data-active={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
+            data-active={wrongPitchClass !== key.pitchClass && (entered.includes(key.pitchClass) || held.includes(key.pitchClass))}
+            data-wrong={wrongPitchClass === key.pitchClass}
             onClick={() => onPress(key.pitchClass)}
           >
             <span className="piano-name">{key.name}</span>

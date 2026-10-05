@@ -237,6 +237,10 @@
   background: #dcecde;
 }
 
+.piano-white[data-wrong='true'] {
+  background: #f3d6cc;
+}
+
 .piano-blacks {
   position: absolute;
   inset: 0;
@@ -259,6 +263,10 @@
 
 .piano-black[data-active='true'] {
   background: #1f6b45;
+}
+
+.piano-black[data-wrong='true'] {
+  background: #9d3418;
 }
 
 .piano-name {
