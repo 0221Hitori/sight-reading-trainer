@@ -52,7 +52,7 @@ describe('StaffRenderer', () => {
           };
         },
       } as unknown as CanvasRenderingContext2D;
-    };
+    } as typeof HTMLCanvasElement.prototype.getContext;
     await StaffRenderer.ensureFonts();
   });
 
