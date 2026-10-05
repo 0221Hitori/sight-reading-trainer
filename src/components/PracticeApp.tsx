@@ -146,7 +146,7 @@ export function PracticeApp() {
       </dl>
 
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="staff-sheet flex flex-col gap-4 p-4 sm:p-6" aria-label="练习">
+        <section className="staff-sheet flex min-w-0 flex-col gap-4 p-4 sm:p-6" aria-label="练习">
           {phase === 'summary' ? (
             <SessionSummary
               score={score}
@@ -219,7 +219,7 @@ export function PracticeApp() {
           )}
         </section>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex min-w-0 flex-col gap-4">
           <SettingsPanel
             settings={settings}
             midi={midi}

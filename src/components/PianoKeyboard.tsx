@@ -34,7 +34,7 @@ export function PianoKeyboard({ entered, held, onPress }: PianoKeyboardProps) {
             key={key.code}
             type="button"
             className="piano-black"
-            style={{ left: `calc(${(key.afterWhite ?? 1) / 7} * 100% - 1.15rem)` }}
+            style={{ ['--after' as string]: String(key.afterWhite ?? 1) }}
             aria-label={`${key.name}，或 ${key.alias}，键盘 ${key.legend}`}
             aria-pressed={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
             data-active={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
