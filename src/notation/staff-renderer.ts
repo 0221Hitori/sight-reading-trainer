@@ -61,15 +61,18 @@ export class StaffRenderer {
 
     const voice = new Voice({ numBeats: 4, beatValue: 4 });
     voice.addTickable(staveNote);
-    const noteWidth = Math.max(80, stave.getNoteEndX() - stave.getNoteStartX() - 24);
-    new Formatter().joinVoices([voice]).format([voice], noteWidth);
+    const available = Math.max(72, stave.getNoteEndX() - stave.getNoteStartX() - 16);
+    // Keep a single flashcard note near the clef instead of justifying it to the barline.
+    new Formatter().joinVoices([voice]).format([voice], Math.min(150, available));
     voice.draw(context, stave);
 
     const svg = host.querySelector('svg');
     if (svg instanceof SVGElement) {
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', '100%');
-      svg.setAttribute('height', '100%');
-      svg.style.overflow = 'visible';
+      svg.setAttribute('height', String(height));
+      svg.style.display = 'block';
+      svg.style.maxWidth = '100%';
       svg.setAttribute('aria-hidden', 'true');
     }
   }

@@ -141,6 +141,12 @@
   box-shadow:
     0 22px 50px -32px rgba(62, 42, 18, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  max-width: 100%;
+}
+
+.staff-host {
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .feedback-ok,
@@ -163,6 +169,8 @@
 .field-select {
   height: 2.25rem;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 0.6rem;
   border: 1px solid var(--border);
   background: var(--card);
@@ -174,6 +182,8 @@
 .piano {
   position: relative;
   height: 11.5rem;
+  width: 100%;
+  max-width: 100%;
   user-select: none;
   touch-action: manipulation;
 }
@@ -232,7 +242,8 @@
   pointer-events: auto;
   position: absolute;
   top: 0;
-  width: 2.3rem;
+  width: calc(100% / 7 * 0.62);
+  left: calc(var(--after) / 7 * 100% - (100% / 7 * 0.31));
   height: 62%;
   border: 1px solid #11100e;
   border-radius: 0 0 0.45rem 0.45rem;
@@ -261,9 +272,6 @@
 @media (max-width: 640px) {
   .piano {
     height: 9.5rem;
-  }
-  .piano-black {
-    width: 1.7rem;
   }
 }
 
