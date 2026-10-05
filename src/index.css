@@ -179,6 +179,11 @@
   font-size: 0.875rem;
 }
 
+.field-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .piano {
   position: relative;
   height: 11.5rem;
