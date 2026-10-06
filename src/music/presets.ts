@@ -14,6 +14,8 @@ interface PresetDefinition {
   chordSizeMin: number;
   chordSizeMax: number;
   minInterval: number;
+  lineLengthMin: number;
+  lineLengthMax: number;
   timed: boolean;
   timeoutMs: number;
   sessionLength: number;
@@ -34,6 +36,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 1,
     minInterval: 1,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: false,
     timeoutMs: 8000,
     sessionLength: 20,
@@ -52,6 +56,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 1,
     minInterval: 1,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: true,
     timeoutMs: 8000,
     sessionLength: 20,
@@ -70,6 +76,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 2,
     minInterval: 3,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: true,
     timeoutMs: 7000,
     sessionLength: 20,
@@ -88,6 +96,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 3,
     minInterval: 2,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: true,
     timeoutMs: 4500,
     sessionLength: 20,
@@ -106,6 +116,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 1,
     minInterval: 1,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: false,
     timeoutMs: 8000,
     sessionLength: 20,
@@ -124,6 +136,8 @@ const DEFINITIONS: readonly PresetDefinition[] = [
     chordSizeMin: 1,
     chordSizeMax: 2,
     minInterval: 3,
+    lineLengthMin: 4,
+    lineLengthMax: 8,
     timed: true,
     timeoutMs: 8000,
     sessionLength: 20,
@@ -131,7 +145,7 @@ const DEFINITIONS: readonly PresetDefinition[] = [
 ];
 
 /**
- * 难度预设。预设里没有 `sound`，`apply` 会保留当前的声音开关。
+ * 难度预设。预设里没有 `sound` 和 `wrongAdvanceMs`，`apply` 会保留这两项。
  * 未知 id 退回第一项（入门）。
  */
 export class PracticePresets {
@@ -141,7 +155,7 @@ export class PracticePresets {
     return this.list.find((preset) => preset.id === id) ?? this.list[0]!;
   }
 
-  static apply(id: string, sound: boolean): PracticeSettings {
+  static apply(id: string, sound: boolean, wrongAdvanceMs = 500): PracticeSettings {
     const preset = this.byId(id);
     return {
       presetId: preset.id,
@@ -155,6 +169,9 @@ export class PracticePresets {
       chordSizeMin: preset.chordSizeMin,
       chordSizeMax: preset.chordSizeMax,
       minInterval: preset.minInterval,
+      lineLengthMin: preset.lineLengthMin,
+      lineLengthMax: preset.lineLengthMax,
+      wrongAdvanceMs,
       timed: preset.timed,
       timeoutMs: preset.timeoutMs,
       sessionLength: preset.sessionLength,

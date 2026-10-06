@@ -1,32 +1,53 @@
 import { MusicTheory } from '@/music/theory';
-import type { Clef, Exercise, KeySignature, PracticeSettings, SpelledPitch } from '@/music/types';
+import type { AnswerSlot, Clef, Exercise, KeySignature, PracticeSettings, SpelledPitch } from '@/music/types';
 
 /**
- * 按当前设置出一道谱题。
- * 顺序是：收紧设置 → 选调 → 选谱号 → 在音池里抽和弦 → 按调号拼写。
+ * 按当前设置出一行谱。
+ * 顺序是：收紧设置 → 选调 → 选谱号 → 决定这一行有几个位置 → 每个位置再抽和弦。
+ * 同一行共用谱号和调号。时值只负责把音排开，不参与出题。
  */
 export class ExerciseGenerator {
-  /** `rng` 返回 [0, 1)。测试传入种子生成器，界面用 `Math.random`。 */
-  static next(settings: PracticeSettings, rng: () => number = Math.random): Exercise {
+  /**
+   * `rng` 返回 [0, 1)。测试传入种子生成器，界面用 `Math.random`。
+   * `remaining` 是这一轮还剩几题。行长会被收进这个数，避免最后一行超出本轮。
+   */
+  static next(settings: PracticeSettings, rng: () => number = Math.random, remaining = Number.POSITIVE_INFINITY): Exercise {
     const safe = this.normalize(settings);
     const key = this.pickKey(safe, rng);
     const clef = this.pickClef(safe, key, rng);
-    const pool = this.midiPool(safe, key, clef);
-    const diatonic = pool.filter((midi) => MusicTheory.isDiatonic(MusicTheory.pitchClass(midi), key));
-    const tonalPool = diatonic.length > 0 ? diatonic : pool;
-    const distinct = new Set(pool.map((midi) => MusicTheory.pitchClass(midi))).size;
-    const size = Math.max(1, Math.min(this.pickInt(safe.chordSizeMin, safe.chordSizeMax, rng), distinct || 1));
-    const midis = this.chooseMidis(safe, tonalPool, pool, size, rng, key);
-    const notes = midis
-      .slice()
-      .sort((left, right) => left - right)
-      .map((midi) => MusicTheory.spell(midi, key, safe.accidentalMode));
+    const length = this.lineLength(safe, rng, remaining);
+    const slots: AnswerSlot[] = [];
+    for (let index = 0; index < length; index += 1) {
+      slots.push(this.nextSlot(safe, key, clef, rng));
+    }
     return {
       id: `ex-${Math.floor(rng() * 0xffffffff).toString(16)}`,
       clef,
       key,
-      notes,
+      slots,
     };
+  }
+
+  /** 一行里的一个位置：单音或和弦。音级和谱位字母在这个位置内部互不相同。 */
+  private static nextSlot(settings: PracticeSettings, key: KeySignature, clef: Clef, rng: () => number): AnswerSlot {
+    const pool = this.midiPool(settings, key, clef);
+    const diatonic = pool.filter((midi) => MusicTheory.isDiatonic(MusicTheory.pitchClass(midi), key));
+    const tonalPool = diatonic.length > 0 ? diatonic : pool;
+    const distinct = new Set(pool.map((midi) => MusicTheory.pitchClass(midi))).size;
+    const size = Math.max(1, Math.min(this.pickInt(settings.chordSizeMin, settings.chordSizeMax, rng), distinct || 1));
+    const midis = this.chooseMidis(settings, tonalPool, pool, size, rng, key);
+    const notes = midis
+      .slice()
+      .sort((left, right) => left - right)
+      .map((midi) => MusicTheory.spell(midi, key, settings.accidentalMode));
+    return { notes };
+  }
+
+  /** 在最少和最多之间抽行长。剩余题数更小时，把这一行缩短到刚好能把本轮答完。 */
+  private static lineLength(settings: PracticeSettings, rng: () => number, remaining: number): number {
+    const picked = this.pickInt(settings.lineLengthMin, settings.lineLengthMax, rng);
+    if (!Number.isFinite(remaining)) return picked;
+    return Math.max(1, Math.min(picked, Math.floor(remaining)));
   }
 
   /** 把越界或颠倒的设置收进生成器能出题的范围。空谱号列表退回高音谱号。 */
@@ -44,6 +65,9 @@ export class ExerciseGenerator {
     const chordSizeMax = this.clampInt(Math.max(settings.chordSizeMax, chordSizeMin), 1, 4);
     const minFifths = this.clampInt(Math.min(settings.minFifths, settings.maxFifths), -7, 7);
     const maxFifths = this.clampInt(Math.max(settings.minFifths, settings.maxFifths), -7, 7);
+    const lineLengthMin = this.clampInt(settings.lineLengthMin ?? 4, 1, 12);
+    const lineLengthMax = this.clampInt(Math.max(settings.lineLengthMax ?? lineLengthMin, lineLengthMin), 1, 12);
+    const wrongAdvanceMs = this.clampInt(settings.wrongAdvanceMs ?? 500, 200, 2000);
     return {
       ...settings,
       clefs,
@@ -55,6 +79,9 @@ export class ExerciseGenerator {
       maxFifths,
       chromaticProbability: this.clampNumber(settings.chromaticProbability, 0, 1),
       minInterval: this.clampInt(settings.minInterval, 1, 12),
+      lineLengthMin,
+      lineLengthMax,
+      wrongAdvanceMs,
       timeoutMs: this.clampInt(settings.timeoutMs, 1000, 30000),
       sessionLength: this.clampInt(settings.sessionLength, 5, 100),
     };
@@ -182,8 +209,19 @@ export class ExerciseGenerator {
 /** 谱面标题。判分之前只写谱号、调号和音数，不写出具体音名。 */
 export class ExerciseView {
   static meta(exercise: Exercise): string {
-    const density = exercise.notes.length === 1 ? '单音' : `${exercise.notes.length} 个音`;
+    const count = exercise.slots.length;
+    const hasChord = exercise.slots.some((slot) => slot.notes.length > 1);
+    let density = '单音';
+    if (count > 1) density = hasChord ? `${count} 个音，含和弦` : `${count} 个音`;
+    else if ((exercise.slots[0]?.notes.length ?? 0) > 1) density = `${exercise.slots[0]!.notes.length} 个音`;
     return `${MusicTheory.clefLabel(exercise.clef)} · ${exercise.key.label} · ${density}`;
+  }
+
+  /** 当前要答的位置。游标越界时夹到最后一格，空行退回一个空和弦。 */
+  static slot(exercise: Exercise, cursor: number): AnswerSlot {
+    if (exercise.slots.length === 0) return { notes: [] };
+    const index = Math.min(Math.max(cursor, 0), exercise.slots.length - 1);
+    return exercise.slots[index] ?? { notes: [] };
   }
 
   static answerLabel(notes: readonly SpelledPitch[]): string {

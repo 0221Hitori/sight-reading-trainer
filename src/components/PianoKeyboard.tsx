@@ -20,7 +20,7 @@ export function PianoKeyboard({ entered, held, wrongPitchClass, onPress }: Piano
             key={key.code}
             type="button"
             className="piano-white"
-            aria-label={`${key.name}，键盘 ${key.legend}`}
+            aria-label={`${key.name}，主键盘 ${key.legend} 或小键盘 ${key.legend}`}
             aria-pressed={entered.includes(key.pitchClass) || held.includes(key.pitchClass)}
             data-active={wrongPitchClass !== key.pitchClass && (entered.includes(key.pitchClass) || held.includes(key.pitchClass))}
             data-wrong={wrongPitchClass === key.pitchClass}
