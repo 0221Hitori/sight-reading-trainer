@@ -36,12 +36,21 @@ export interface SpelledPitch {
   printedAccidental: PrintedAccidental;
 }
 
+/** 一行里的一个作答位置。可以是单音，也可以是和弦。节奏不计分。 */
+export interface AnswerSlot {
+  /** 从低到高。音级互不相同，键盘才能按音级答完和弦。 */
+  notes: SpelledPitch[];
+}
+
 export interface Exercise {
   id: string;
   clef: Clef;
   key: KeySignature;
-  /** 从低到高。音级互不相同，键盘才能按音级答完和弦。 */
-  notes: SpelledPitch[];
+  /**
+   * 从左到右。同一行共用谱号和调号。
+   * 长度由 `lineLengthMin` / `lineLengthMax` 决定，最后一行会收进本轮剩余题数。
+   */
+  slots: AnswerSlot[];
 }
 
 export interface PracticeSettings {
@@ -58,6 +67,12 @@ export interface PracticeSettings {
   chordSizeMax: number;
   /** 和弦音之间至少相隔多少个半音。音池不够时生成器会把间隔降到 1。 */
   minInterval: number;
+  /** 一行最少几个音（每个音或和弦算一个）。 */
+  lineLengthMin: number;
+  /** 一行最多几个音。实际行长在这个闭区间里随机。 */
+  lineLengthMax: number;
+  /** 答错后多久自动进入下一个音，单位毫秒。 */
+  wrongAdvanceMs: number;
   timed: boolean;
   timeoutMs: number;
   sound: boolean;

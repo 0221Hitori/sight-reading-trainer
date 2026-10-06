@@ -30,7 +30,12 @@ if (typeof globalThis.FontFace === 'undefined') {
 function draw(exercise: Exercise, width = 640): SVGElement {
   const host = document.createElement('div');
   document.body.appendChild(host);
-  StaffRenderer.draw(host, exercise, { entered: [], grade: null, width });
+  StaffRenderer.draw(host, exercise, {
+    cursor: 0,
+    entered: [],
+    marks: exercise.slots.map(() => null),
+    width,
+  });
   const svg = host.querySelector('svg');
   if (!(svg instanceof SVGElement)) throw new Error('StaffRenderer did not emit an svg');
   return svg;
@@ -63,6 +68,8 @@ describe('StaffRenderer', () => {
         clefs: [clef],
         chordSizeMin: clef === 'treble' ? 3 : 1,
         chordSizeMax: clef === 'treble' ? 3 : 1,
+        lineLengthMin: 1,
+        lineLengthMax: 1,
         accidentalMode: clef === 'bass' ? 'flats' : 'sharps',
         minFifths: clef === 'bass' ? -2 : 1,
         maxFifths: clef === 'bass' ? -1 : 2,
@@ -89,15 +96,55 @@ describe('StaffRenderer', () => {
     };
     const onStaff = draw({
       ...base,
-      notes: [{ midi: 64, step: 'E', accidental: 0, octave: 4, printedAccidental: null }],
+      slots: [{ notes: [{ midi: 64, step: 'E', accidental: 0, octave: 4, printedAccidental: null }] }],
     });
     const below = draw({
       ...base,
       id: 'ledger',
-      notes: [{ midi: 57, step: 'A', accidental: 0, octave: 3, printedAccidental: null }],
+      slots: [{ notes: [{ midi: 57, step: 'A', accidental: 0, octave: 3, printedAccidental: null }] }],
     });
     const count = (svg: SVGElement) => svg.querySelectorAll('path').length;
     expect(below.getAttribute('viewBox') ?? '').toMatch(/^0 0 /);
     expect(count(below)).toBeGreaterThan(count(onStaff));
+  });
+
+  it('draws a line and colors the current note differently from an answered one', () => {
+    const pitch = (midi: number, step: 'C' | 'D' | 'E' | 'F', octave: number) => ({
+      midi,
+      step,
+      accidental: 0 as const,
+      octave,
+      printedAccidental: null,
+    });
+    const exercise: Exercise = {
+      id: 'line',
+      clef: 'treble',
+      key: { id: 'C', fifths: 0, alterations: {}, label: 'C 大调' },
+      slots: [
+        { notes: [pitch(60, 'C', 4)] },
+        { notes: [pitch(62, 'D', 4)] },
+        { notes: [pitch(64, 'E', 4)] },
+        { notes: [pitch(65, 'F', 4)] },
+      ],
+    };
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    StaffRenderer.draw(host, exercise, {
+      cursor: 1,
+      entered: [],
+      marks: [{ correct: true }, null, null, null],
+      width: 720,
+    });
+    const svg = host.querySelector('svg');
+    if (!(svg instanceof SVGElement)) throw new Error('StaffRenderer did not emit an svg');
+    const painted = svg.innerHTML;
+    expect(painted).toContain('#1f6b45');
+    expect(painted).toContain('#1d4e89');
+    const single = draw({
+      ...exercise,
+      id: 'one',
+      slots: [{ notes: [pitch(60, 'C', 4)] }],
+    });
+    expect(svg.querySelectorAll('text').length).toBeGreaterThan(single.querySelectorAll('text').length);
   });
 });

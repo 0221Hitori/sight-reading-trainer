@@ -35,6 +35,21 @@ describe('ProgressStore', () => {
     expect(ProgressStore.loadSettings(storage).presetId).toBe('beginner');
   });
 
+  it('fills line length and the wrong-answer delay when an older settings file has neither', () => {
+    const storage = new MemoryStorage();
+    const settings = PracticePresets.apply('bass', false);
+    const legacy = { ...settings } as Partial<typeof settings>;
+    delete legacy.lineLengthMin;
+    delete legacy.lineLengthMax;
+    delete legacy.wrongAdvanceMs;
+    storage.setItem('sightread.settings.v1', JSON.stringify(legacy));
+    const loaded = ProgressStore.loadSettings(storage);
+    expect(loaded.presetId).toBe('bass');
+    expect(loaded.lineLengthMin).toBe(4);
+    expect(loaded.lineLengthMax).toBe(8);
+    expect(loaded.wrongAdvanceMs).toBe(500);
+  });
+
   it('accumulates attempts, streaks, and missed note names', () => {
     const storage = new MemoryStorage();
     ProgressStore.recordAttempt(
