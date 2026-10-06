@@ -11,7 +11,9 @@ describe('ExerciseGenerator', () => {
     const first = ExerciseGenerator.next(settings, RandomSource.mulberry32(11));
     const second = ExerciseGenerator.next(settings, RandomSource.mulberry32(11));
     expect(first.clef).toBe(second.clef);
-    expect(first.notes.map((note) => note.midi)).toEqual(second.notes.map((note) => note.midi));
+    expect(first.slots.map((slot) => slot.notes.map((note) => note.midi))).toEqual(
+      second.slots.map((slot) => slot.notes.map((note) => note.midi)),
+    );
   });
 
   it('keeps beginner questions on the treble staff, in range, and natural', () => {
@@ -21,12 +23,16 @@ describe('ExerciseGenerator', () => {
       const exercise = ExerciseGenerator.next(settings, rng);
       expect(exercise.clef).toBe('treble');
       expect(exercise.key.fifths).toBe(0);
-      expect(exercise.notes).toHaveLength(1);
-      const note = exercise.notes[0]!;
-      expect(note.midi).toBeGreaterThanOrEqual(60);
-      expect(note.midi).toBeLessThanOrEqual(72);
-      expect(note.accidental).toBe(0);
-      expect(MusicTheory.isNatural(note.midi)).toBe(true);
+      expect(exercise.slots.length).toBeGreaterThanOrEqual(4);
+      expect(exercise.slots.length).toBeLessThanOrEqual(8);
+      for (const slot of exercise.slots) {
+        expect(slot.notes).toHaveLength(1);
+        const note = slot.notes[0]!;
+        expect(note.midi).toBeGreaterThanOrEqual(60);
+        expect(note.midi).toBeLessThanOrEqual(72);
+        expect(note.accidental).toBe(0);
+        expect(MusicTheory.isNatural(note.midi)).toBe(true);
+      }
     }
   });
 
@@ -42,23 +48,25 @@ describe('ExerciseGenerator', () => {
     for (let index = 0; index < 80; index += 1) {
       const exercise = ExerciseGenerator.next(settings, rng);
       seen.add(exercise.clef);
-      expect(exercise.notes.length).toBeGreaterThanOrEqual(2);
-      expect(exercise.notes.length).toBeLessThanOrEqual(3);
-      const classes = exercise.notes.map((note) => MusicTheory.pitchClass(note.midi));
-      expect(new Set(classes).size).toBe(classes.length);
-      const midis = exercise.notes.map((note) => note.midi);
-      expect([...midis].sort((a, b) => a - b)).toEqual(midis);
-      for (const note of exercise.notes) {
-        expect(note.midi).toBeGreaterThanOrEqual(settings.lowestMidi);
-        expect(note.midi).toBeLessThanOrEqual(settings.highestMidi);
-        expect(MusicTheory.isDiatonic(note.midi, exercise.key)).toBe(true);
+      expect(exercise.slots.length).toBeGreaterThanOrEqual(4);
+      expect(exercise.slots.length).toBeLessThanOrEqual(8);
+      for (const slot of exercise.slots) {
+        expect(slot.notes.length).toBeGreaterThanOrEqual(2);
+        expect(slot.notes.length).toBeLessThanOrEqual(3);
+        const classes = slot.notes.map((note) => MusicTheory.pitchClass(note.midi));
+        expect(new Set(classes).size).toBe(classes.length);
+        const midis = slot.notes.map((note) => note.midi);
+        expect([...midis].sort((a, b) => a - b)).toEqual(midis);
+        for (const note of slot.notes) {
+          expect(note.midi).toBeGreaterThanOrEqual(settings.lowestMidi);
+          expect(note.midi).toBeLessThanOrEqual(settings.highestMidi);
+          expect(MusicTheory.isDiatonic(note.midi, exercise.key)).toBe(true);
+        }
+        const steps = slot.notes.map((note) => note.step);
+        expect(new Set(steps).size).toBe(steps.length);
       }
     }
     expect([...seen].sort()).toEqual(['alto', 'bass', 'tenor', 'treble']);
-    for (const exercise of [ExerciseGenerator.next(settings, rng)]) {
-      const steps = exercise.notes.map((note) => note.step);
-      expect(new Set(steps).size).toBe(steps.length);
-    }
   });
 
   it('prints an accidental when the note leaves the key, and can use each clef alone', () => {
@@ -76,8 +84,10 @@ describe('ExerciseGenerator', () => {
     const rng = RandomSource.mulberry32(5);
     for (let index = 0; index < 40; index += 1) {
       const exercise = ExerciseGenerator.next(chromatic, rng);
-      const note = exercise.notes[0]!;
-      if (note.printedAccidental) printed.add(note.printedAccidental);
+      for (const slot of exercise.slots) {
+        const note = slot.notes[0]!;
+        if (note.printedAccidental) printed.add(note.printedAccidental);
+      }
       expect(exercise.key.fifths).toBe(0);
     }
     expect(printed.has('#')).toBe(true);
@@ -99,7 +109,9 @@ describe('ExerciseGenerator', () => {
     let ledger = 0;
     for (let index = 0; index < 40; index += 1) {
       const exercise = ExerciseGenerator.next(settings, rng);
-      if (exercise.notes.some((note) => MusicTheory.usesLedgerLine(exercise.clef, note))) ledger += 1;
+      if (exercise.slots.some((slot) => slot.notes.some((note) => MusicTheory.usesLedgerLine(exercise.clef, note)))) {
+        ledger += 1;
+      }
     }
     expect(ledger).toBeGreaterThan(0);
   });
@@ -119,9 +131,11 @@ describe('ExerciseGenerator', () => {
     const rng = RandomSource.mulberry32(42);
     for (let index = 0; index < 40; index += 1) {
       const exercise = ExerciseGenerator.next(settings, rng);
-      const steps = exercise.notes.map((note) => note.step);
-      expect(new Set(steps).size).toBe(steps.length);
-      expect(exercise.notes.length).toBeGreaterThanOrEqual(2);
+      for (const slot of exercise.slots) {
+        const steps = slot.notes.map((note) => note.step);
+        expect(new Set(steps).size).toBe(steps.length);
+        expect(slot.notes.length).toBeGreaterThanOrEqual(2);
+      }
     }
   });
 
@@ -141,6 +155,25 @@ describe('ExerciseGenerator', () => {
     }
   });
 
+  it('caps a line to the remaining questions in the round', () => {
+    const settings = PracticePresets.apply('beginner', false);
+    const exercise = ExerciseGenerator.next(settings, RandomSource.mulberry32(1), 2);
+    expect(exercise.slots).toHaveLength(2);
+    expect(exercise.slots.every((slot) => slot.notes.length === 1)).toBe(true);
+  });
+
+  it('keeps one clef and key across a fixed-length line', () => {
+    const settings: PracticeSettings = {
+      ...PracticePresets.apply('intermediate', true),
+      lineLengthMin: 6,
+      lineLengthMax: 6,
+    };
+    const exercise = ExerciseGenerator.next(settings, RandomSource.mulberry32(12));
+    expect(exercise.slots).toHaveLength(6);
+    expect(new Set(exercise.slots.map(() => exercise.clef)).size).toBe(1);
+    expect(new Set(exercise.slots.map(() => exercise.key.id)).size).toBe(1);
+  });
+
   it('generates every preset without throwing', () => {
     for (const preset of PracticePresets.list) {
       const settings = PracticePresets.apply(preset.id, true);
@@ -148,7 +181,9 @@ describe('ExerciseGenerator', () => {
       for (let index = 0; index < 15; index += 1) {
         const exercise = ExerciseGenerator.next(settings, rng);
         expect(settings.clefs).toContain(exercise.clef);
-        expect(exercise.notes.length).toBeGreaterThan(0);
+        expect(exercise.slots.length).toBeGreaterThanOrEqual(settings.lineLengthMin);
+        expect(exercise.slots.length).toBeLessThanOrEqual(settings.lineLengthMax);
+        expect(exercise.slots.every((slot) => slot.notes.length > 0)).toBe(true);
       }
     }
   });

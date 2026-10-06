@@ -29,6 +29,7 @@ const FIFTHS = [
 ];
 
 const NOTE_CHOICES = MusicTheory.noteChoices(36, 84);
+const LINE_LENGTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 /** 练习设置。改动由外层记为自定义，并在下一题生效。 */
 export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: SettingsPanelProps) {
@@ -188,6 +189,38 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
         </label>
       </div>
 
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="grid gap-1 text-xs text-muted-foreground">
+          一行最少
+          <select
+            className="field-select"
+            value={settings.lineLengthMin}
+            onChange={(event) => onChange({ lineLengthMin: Number(event.target.value) })}
+          >
+            {LINE_LENGTHS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs text-muted-foreground">
+          一行最多
+          <select
+            className="field-select"
+            value={settings.lineLengthMax}
+            onChange={(event) => onChange({ lineLengthMax: Number(event.target.value) })}
+          >
+            {LINE_LENGTHS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">从左到右答完这一行，再换新的一行。每个音或和弦算一题。</p>
+
       <div className="mt-4 flex items-center justify-between gap-3">
         <Label htmlFor="timed">限时</Label>
         <Switch id="timed" checked={settings.timed} onCheckedChange={(timed) => onChange({ timed })} />
@@ -205,6 +238,22 @@ export function SettingsPanel({ settings, midi, onChange, onConnectMidi }: Setti
           value={[Math.round(settings.timeoutMs / 1000)]}
           onValueChange={(value) => onChange({ timeoutMs: (value[0] ?? 8) * 1000 })}
           aria-label="每题秒数"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <Label htmlFor="wrong-advance">答错后停留</Label>
+          <span>{(settings.wrongAdvanceMs / 1000).toFixed(1)} 秒</span>
+        </div>
+        <Slider
+          id="wrong-advance"
+          min={200}
+          max={2000}
+          step={100}
+          value={[settings.wrongAdvanceMs]}
+          onValueChange={(value) => onChange({ wrongAdvanceMs: value[0] ?? 500 })}
+          aria-label="答错后停留"
         />
       </div>
 

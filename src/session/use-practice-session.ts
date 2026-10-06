@@ -1,13 +1,13 @@
 /**
  * 练习会话的副作用外壳。对错由 PracticeRound 决定。
- * 这里负责：发声、写入 ProgressStore、答对后 720ms 自动下一题、限时检查。
+ * 这里负责：发声、写入 ProgressStore、答对或答错后自动进入下一个音、限时检查。
  * settings 和 round 的 ref 只在回调里更新，避免渲染期间写 ref。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PianoSynth } from '@/audio/synth';
 import { MusicTheory } from '@/music/theory';
 import { PracticePresets } from '@/music/presets';
-import { ExerciseGenerator } from '@/music/exercise';
+import { ExerciseGenerator, ExerciseView } from '@/music/exercise';
 import type { LifetimeStats, PracticeSettings } from '@/music/types';
 import { PracticeRound, type RoundSnapshot, type RoundTransition } from '@/session/practice-round';
 import { ProgressStore } from '@/storage/progress';
@@ -19,6 +19,8 @@ export interface PracticeController {
   lifetime: LifetimeStats;
   exercise: RoundSnapshot['exercise'];
   phase: PracticePhase;
+  cursor: number;
+  marks: RoundSnapshot['marks'];
   entered: number[];
   grade: RoundSnapshot['grade'];
   score: RoundSnapshot['score'];
@@ -71,7 +73,7 @@ export function usePracticeSession(): PracticeController {
   const playFeedback = useCallback((transition: RoundTransition) => {
     if (!settingsRef.current.sound || transition.effect === 'none' || transition.effect === 'partial') return;
     synth.current.resume();
-    const notes = transition.snapshot.exercise.notes.map((note) => note.midi);
+    const notes = ExerciseView.slot(transition.snapshot.exercise, transition.snapshot.cursor).notes.map((note) => note.midi);
     if (transition.effect === 'correct') {
       synth.current.playChord(notes);
       return;
@@ -90,7 +92,7 @@ export function usePracticeSession(): PracticeController {
       if (transition.effect === 'none') return;
       publish(transition.snapshot);
       if (transition.effect === 'partial') {
-        const match = transition.snapshot.exercise.notes.find(
+        const match = ExerciseView.slot(transition.snapshot.exercise, transition.snapshot.cursor).notes.find(
           (note) => MusicTheory.pitchClass(note.midi) === transition.playedPitchClass,
         );
         if (match && settingsRef.current.sound) {
@@ -104,8 +106,10 @@ export function usePracticeSession(): PracticeController {
         setLifetime(ProgressStore.recordAttempt(grade, transition.snapshot.score.bestStreak, transition.miss));
       }
       playFeedback(transition);
-      if (transition.effect === 'correct') {
-        advanceTimer.current = window.setTimeout(() => advance(), 720);
+      const delay = PracticeRound.advanceDelay(transition.effect, settingsRef.current);
+      if (delay !== null) {
+        clearAdvance();
+        advanceTimer.current = window.setTimeout(() => advance(), delay);
       }
     },
     [advance, playFeedback, publish],
@@ -148,7 +152,10 @@ export function usePracticeSession(): PracticeController {
 
   const applyPreset = useCallback(
     (presetId: string) => {
-      commit(PracticePresets.apply(presetId, settingsRef.current.sound), true);
+      commit(
+        PracticePresets.apply(presetId, settingsRef.current.sound, settingsRef.current.wrongAdvanceMs),
+        true,
+      );
     },
     [commit],
   );
@@ -188,6 +195,8 @@ export function usePracticeSession(): PracticeController {
     lifetime,
     exercise: round.exercise,
     phase: round.phase,
+    cursor: round.cursor,
+    marks: round.marks,
     entered: round.entered,
     grade: round.grade,
     score: round.score,

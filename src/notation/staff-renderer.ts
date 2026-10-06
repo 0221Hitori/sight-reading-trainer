@@ -1,15 +1,20 @@
 import { Accidental, Formatter, Renderer, Stave, StaveNote, Voice } from 'vexflow';
 import VexFlow from 'vexflow';
-import type { Exercise, Grade } from '@/music/types';
+import type { Exercise } from '@/music/types';
 import { MusicTheory } from '@/music/theory';
 
 const INK = '#1c1915';
 const PINE = '#1f6b45';
 const CINNABAR = '#9d3418';
+/** 当前还没答完的音。和已答对的绿、答错的红分开。 */
+const CURRENT = '#1d4e89';
 
 export interface StaffRenderOptions {
+  /** 正在答的位置。 */
+  cursor: number;
   entered: readonly number[];
-  grade: Grade | null;
+  /** 与 slots 等长。还没答的是 null。 */
+  marks: readonly ({ correct: boolean } | null)[];
   width: number;
 }
 
@@ -38,7 +43,9 @@ export class StaffRenderer {
 
   static draw(host: HTMLDivElement, exercise: Exercise, options: StaffRenderOptions): void {
     host.replaceChildren();
-    const width = Math.max(280, Math.floor(options.width || 320));
+    const slotCount = Math.max(1, exercise.slots.length);
+    // 音多时加宽 viewBox，再缩进容器，避免符头挤在一起。
+    const width = Math.max(320, slotCount * 72, Math.floor(options.width || 320));
     const height = 270;
     const renderer = new Renderer(host, Renderer.Backends.SVG);
     renderer.resize(width, height);
@@ -50,31 +57,34 @@ export class StaffRenderer {
     if (exercise.key.fifths !== 0) stave.addKeySignature(exercise.key.id);
     stave.setContext(context).draw();
 
-    const staveNote = new StaveNote({
-      clef: exercise.clef,
-      keys: exercise.notes.map((note) => MusicTheory.vexflowKey(note)),
-      duration: 'w',
-    });
-
-    exercise.notes.forEach((note, index) => {
-      if (note.printedAccidental) {
-        staveNote.addModifier(new Accidental(note.printedAccidental), index);
+    // 四分音符只用来把一行排开。判分不看时值。
+    const tickables = exercise.slots.map((slot, slotIndex) => {
+      const staveNote = new StaveNote({
+        clef: exercise.clef,
+        keys: slot.notes.map((note) => MusicTheory.vexflowKey(note)),
+        duration: 'q',
+      });
+      const mark = options.marks[slotIndex] ?? null;
+      const tone = this.toneFor(slotIndex, mark, options);
+      if (tone) {
+        staveNote.setStyle({ fillStyle: tone, strokeStyle: tone });
+        staveNote.setLedgerLineStyle({ fillStyle: tone, strokeStyle: tone });
       }
-      const pitchClass = MusicTheory.pitchClass(note.midi);
-      staveNote.setKeyStyle(index, { fillStyle: this.colorFor(pitchClass, options), strokeStyle: this.colorFor(pitchClass, options) });
+      slot.notes.forEach((note, index) => {
+        if (note.printedAccidental) {
+          staveNote.addModifier(new Accidental(note.printedAccidental), index);
+        }
+        const pitchClass = MusicTheory.pitchClass(note.midi);
+        const color = this.colorFor(slotIndex, pitchClass, mark, options);
+        staveNote.setKeyStyle(index, { fillStyle: color, strokeStyle: color });
+      });
+      return staveNote;
     });
 
-    if (options.grade?.correct === true) {
-      staveNote.setLedgerLineStyle({ fillStyle: PINE, strokeStyle: PINE });
-    } else if (options.grade && !options.grade.correct) {
-      staveNote.setLedgerLineStyle({ fillStyle: CINNABAR, strokeStyle: CINNABAR });
-    }
-
-    const voice = new Voice({ numBeats: 4, beatValue: 4 });
-    voice.addTickable(staveNote);
+    const voice = new Voice({ numBeats: slotCount, beatValue: 4 });
+    voice.addTickables(tickables);
     const available = Math.max(72, stave.getNoteEndX() - stave.getNoteStartX() - 16);
-    // 识谱卡片把音符留在谱号旁边，不把它撑到小节线。
-    new Formatter().joinVoices([voice]).format([voice], Math.min(150, available));
+    new Formatter().joinVoices([voice]).format([voice], available);
     voice.draw(context, stave);
 
     const svg = host.querySelector('svg');
@@ -89,11 +99,34 @@ export class StaffRenderer {
     }
   }
 
-  /** 未判分时，已经按对的和弦音变绿；整题判错则全部变红。 */
-  private static colorFor(pitchClass: number, options: StaffRenderOptions): string {
-    if (options.grade?.correct === true) return PINE;
-    if (options.grade && !options.grade.correct) return CINNABAR;
-    if (options.entered.includes(pitchClass)) return PINE;
+  /** 已答的格子整音染色。当前音在没有逐个符头颜色时也染成高亮色。还没轮到的音保持墨色。 */
+  private static toneFor(
+    slotIndex: number,
+    mark: { correct: boolean } | null,
+    options: StaffRenderOptions,
+  ): string | null {
+    if (mark?.correct === true) return PINE;
+    if (mark && !mark.correct) return CINNABAR;
+    if (slotIndex === options.cursor) return CURRENT;
+    return null;
+  }
+
+  /**
+   * 已答对的音是绿色，答错是朱色。
+   * 当前音高亮；和弦里已经按对的音级先变绿。后面的音保持墨色，方便提前看。
+   */
+  private static colorFor(
+    slotIndex: number,
+    pitchClass: number,
+    mark: { correct: boolean } | null,
+    options: StaffRenderOptions,
+  ): string {
+    if (mark?.correct === true) return PINE;
+    if (mark && !mark.correct) return CINNABAR;
+    if (slotIndex === options.cursor) {
+      if (options.entered.includes(pitchClass)) return PINE;
+      return CURRENT;
+    }
     return INK;
   }
 }

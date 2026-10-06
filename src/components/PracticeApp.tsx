@@ -27,6 +27,8 @@ export function PracticeApp() {
     lifetime,
     exercise,
     phase,
+    cursor,
+    marks,
     entered,
     grade,
     score,
@@ -45,7 +47,7 @@ export function PracticeApp() {
     // event.code 是物理键。长按连发、正在输入、帮助对话框打开时不抢键。
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
-      const pitchClass = KeyboardMap.pitchClassFromCode(event.code);
+      const pitchClass = KeyboardMap.pitchClassFromKeyboardEvent(event);
       if (pitchClass !== null && phase === 'question') {
         event.preventDefault();
         setHeld((current) => (current.includes(pitchClass) ? current : [...current, pitchClass]));
@@ -60,7 +62,7 @@ export function PracticeApp() {
       }
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const pitchClass = KeyboardMap.pitchClassFromCode(event.code);
+      const pitchClass = KeyboardMap.pitchClassFromKeyboardEvent(event);
       if (pitchClass === null) return;
       setHeld((current) => current.filter((item) => item !== pitchClass));
     };
@@ -80,13 +82,16 @@ export function PracticeApp() {
   const questionNumber =
     phase === 'summary' ? settings.sessionLength : phase === 'feedback' ? score.attempts : score.attempts + 1;
   const remaining = settings.timed ? Math.max(0, settings.timeoutMs - (now - questionStartedAt)) : settings.timeoutMs;
-  const answerLabel = ExerciseView.answerLabel(exercise.notes);
+  const slot = ExerciseView.slot(exercise, cursor);
+  const linePosition = `这一行 ${cursor + 1} / ${Math.max(1, exercise.slots.length)}`;
+  const moreOnLine = cursor + 1 < exercise.slots.length;
+  const answerLabel = ExerciseView.answerLabel(slot.notes);
   const feedback = describeFeedback(phase, grade?.correct ?? null, grade?.reason ?? null, answerLabel);
   const partial =
     phase === 'question' && entered.length > 0
       ? `已确认 ${entered
           .map((pitchClass) => {
-            const note = exercise.notes.find((item) => MusicTheory.pitchClass(item.midi) === pitchClass);
+            const note = slot.notes.find((item) => MusicTheory.pitchClass(item.midi) === pitchClass);
             return note
               ? MusicTheory.formatName(note, false)
               : MusicTheory.formatPitchClass(pitchClass, exercise.key, settings.accidentalMode);
@@ -159,10 +164,12 @@ export function PracticeApp() {
           ) : (
             <>
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm font-medium">{ExerciseView.meta(exercise)}</p>
+                <p className="text-sm font-medium">
+                  {ExerciseView.meta(exercise)} · {linePosition}
+                </p>
                 <p className="text-xs text-muted-foreground">第 {questionNumber} 题</p>
               </div>
-              <StaffView exercise={exercise} entered={entered} grade={grade} />
+              <StaffView exercise={exercise} cursor={cursor} entered={entered} marks={marks} grade={grade} />
               {settings.timed && phase === 'question' && (
                 <div
                   className="h-1.5 overflow-hidden rounded-full bg-muted"
@@ -186,7 +193,10 @@ export function PracticeApp() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {partial || (exercise.notes.length > 1 ? '依次或同时按下和弦里的每一个音。' : '按下你看到的音。')}
+                    {partial ||
+                      (slot.notes.length > 1
+                        ? `按下当前和弦里的每一个音。${linePosition}。`
+                        : `按下高亮的音。${linePosition}。`)}
                   </p>
                 )}
               </div>
@@ -197,7 +207,7 @@ export function PracticeApp() {
                   </Button>
                 ) : (
                   <Button type="button" onClick={advance}>
-                    下一题
+                    {moreOnLine ? '下一个音' : '下一题'}
                   </Button>
                 )}
                 <Button type="button" variant="ghost" onClick={restart}>
@@ -217,7 +227,7 @@ export function PracticeApp() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                白键 1–7 对应 C D E F G A B，黑键是 Q W R T Y。答对后自动进入下一题，答错后按 Enter 继续。
+                白键 1–7 和小键盘 1–7 对应 C D E F G A B（Num Lock 开或关都可以），黑键是 Q W R T Y。从左到右答高亮的音。答错会记下，并自动进入下一个音。
               </p>
             </>
           )}
@@ -293,7 +303,7 @@ function describeFeedback(
   if (correct) return { title: '正确', detail: answer };
   if (reason === 'timeout') return { title: '时间到了', detail: `正确答案是 ${answer}` };
   if (reason === 'reveal') return { title: '先记住这个音', detail: answer };
-  return { title: '不正确', detail: `正确答案是 ${answer}` };
+  return { title: '不正确', detail: `正确答案是 ${answer}。马上继续。` };
 }
 
 function isTyping(target: EventTarget | null): boolean {
